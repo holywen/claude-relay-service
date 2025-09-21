@@ -272,7 +272,10 @@
                 </div>
               </div>
               <p class="mt-2 text-xs text-blue-700">
-                💡 设置后需要重新打开 PowerShell 窗口才能生效。
+                💡
+                <span class="text-sm font-bold text-red-600 dark:text-red-400"
+                  >设置后需要重新打开 PowerShell 窗口才能生效。</span
+                >
               </p>
             </div>
           </div>
@@ -385,7 +388,10 @@
                 </div>
               </div>
               <p class="mt-2 text-xs text-blue-700">
-                💡 设置后需要重新打开 PowerShell 窗口才能生效。
+                💡
+                <span class="text-sm font-bold text-red-600 dark:text-red-400"
+                  >设置后需要重新打开 PowerShell 窗口才能生效。</span
+                >
               </p>
             </div>
 
