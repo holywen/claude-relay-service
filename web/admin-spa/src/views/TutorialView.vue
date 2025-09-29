@@ -431,21 +431,19 @@
               <p class="mb-3 text-sm text-yellow-700">
                 在
                 <code class="rounded bg-yellow-100 px-1">~/.codex/config.toml</code>
-                文件中添加以下配置：
+                文件开头添加以下配置：
               </p>
               <div
                 class="overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
               >
-                <div class="whitespace-nowrap text-gray-300">model_provider = "crs"</div>
-                <div class="whitespace-nowrap text-gray-300">model = "gpt-5-codex"</div>
-                <div class="whitespace-nowrap text-gray-300">model_reasoning_effort = "high"</div>
-                <div class="whitespace-nowrap text-gray-300">disable_response_storage = true</div>
-                <div class="whitespace-nowrap text-gray-300">preferred_auth_method = "apikey"</div>
-                <div class="mt-2"></div>
-                <div class="whitespace-nowrap text-gray-300">[model_providers.crs]</div>
-                <div class="whitespace-nowrap text-gray-300">name = "crs"</div>
-                <div class="whitespace-nowrap text-gray-300">base_url = "{{ openaiBaseUrl }}"</div>
-                <div class="whitespace-nowrap text-gray-300">wire_api = "responses"</div>
+                <div
+                  v-for="line in codexConfigContent.configToml"
+                  :key="line"
+                  class="whitespace-nowrap text-gray-300"
+                  :class="{ 'mt-2': line === '' }"
+                >
+                  {{ line }}
+                </div>
               </div>
               <p class="mt-3 text-sm text-yellow-700">
                 在
@@ -455,13 +453,59 @@
               <div
                 class="mt-2 overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
               >
-                <div class="whitespace-nowrap text-gray-300">{</div>
-                <div class="whitespace-nowrap text-gray-300">"OPENAI_API_KEY": "你的API密钥"</div>
-                <div class="whitespace-nowrap text-gray-300">}</div>
+                <div
+                  v-for="line in codexConfigContent.authJson"
+                  :key="line"
+                  class="whitespace-nowrap text-gray-300"
+                >
+                  {{ line }}
+                </div>
               </div>
-              <p class="mt-2 text-xs text-yellow-700">
-                💡 使用与 Claude Code 相同的 API 密钥即可，格式如 cr_xxxxxxxxxx。
-              </p>
+              <div class="mt-3 space-y-3 text-xs text-yellow-700 dark:text-yellow-300">
+                <!-- 描述文字 -->
+                <p>{{ codexConfigContent.authInstructions.description }}</p>
+
+                <!-- 标题 -->
+                <h6 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                  {{ codexConfigContent.authInstructions.title }}
+                </h6>
+
+                <!-- 当前平台对应的环境变量设置 -->
+                <div class="space-y-2">
+                  <p class="font-medium">
+                    {{ codexConfigContent.authInstructions.platform.title }}:
+                  </p>
+                  <div
+                    class="overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
+                  >
+                    <div class="whitespace-nowrap text-gray-300">
+                      {{ codexConfigContent.authInstructions.platform.command }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Shell 配置文件（仅对于 macOS/Linux 显示） -->
+                <div v-if="codexConfigContent.authInstructions.persistent" class="space-y-2">
+                  <p class="font-medium">
+                    {{ codexConfigContent.authInstructions.persistent.title }}:
+                  </p>
+                  <p class="text-xs">
+                    {{ codexConfigContent.authInstructions.persistent.description }}
+                  </p>
+                  <div
+                    class="overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
+                  >
+                    <div
+                      v-for="command in codexConfigContent.authInstructions.persistent.commands"
+                      :key="command"
+                      class="whitespace-nowrap text-gray-300"
+                      :class="{ 'mt-2': command === '' }"
+                    >
+                      {{ command }}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -918,21 +962,19 @@
               <p class="mb-3 text-sm text-yellow-700">
                 在
                 <code class="rounded bg-yellow-100 px-1">~/.codex/config.toml</code>
-                文件中添加以下配置：
+                文件开头添加以下配置：
               </p>
               <div
                 class="overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
               >
-                <div class="whitespace-nowrap text-gray-300">model_provider = "crs"</div>
-                <div class="whitespace-nowrap text-gray-300">model = "gpt-5-codex"</div>
-                <div class="whitespace-nowrap text-gray-300">model_reasoning_effort = "high"</div>
-                <div class="whitespace-nowrap text-gray-300">disable_response_storage = true</div>
-                <div class="whitespace-nowrap text-gray-300">preferred_auth_method = "apikey"</div>
-                <div class="mt-2"></div>
-                <div class="whitespace-nowrap text-gray-300">[model_providers.crs]</div>
-                <div class="whitespace-nowrap text-gray-300">name = "crs"</div>
-                <div class="whitespace-nowrap text-gray-300">base_url = "{{ openaiBaseUrl }}"</div>
-                <div class="whitespace-nowrap text-gray-300">wire_api = "responses"</div>
+                <div
+                  v-for="line in codexConfigContent.configToml"
+                  :key="line"
+                  class="whitespace-nowrap text-gray-300"
+                  :class="{ 'mt-2': line === '' }"
+                >
+                  {{ line }}
+                </div>
               </div>
               <p class="mt-3 text-sm text-yellow-700">
                 在
@@ -942,13 +984,59 @@
               <div
                 class="mt-2 overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
               >
-                <div class="whitespace-nowrap text-gray-300">{</div>
-                <div class="whitespace-nowrap text-gray-300">"OPENAI_API_KEY": "你的API密钥"</div>
-                <div class="whitespace-nowrap text-gray-300">}</div>
+                <div
+                  v-for="line in codexConfigContent.authJson"
+                  :key="line"
+                  class="whitespace-nowrap text-gray-300"
+                >
+                  {{ line }}
+                </div>
               </div>
-              <p class="mt-2 text-xs text-yellow-700">
-                💡 使用与 Claude Code 相同的 API 密钥即可，格式如 cr_xxxxxxxxxx。
-              </p>
+              <div class="mt-3 space-y-3 text-xs text-yellow-700 dark:text-yellow-300">
+                <!-- 描述文字 -->
+                <p>{{ codexConfigContent.authInstructions.description }}</p>
+
+                <!-- 标题 -->
+                <h6 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                  {{ codexConfigContent.authInstructions.title }}
+                </h6>
+
+                <!-- 当前平台对应的环境变量设置 -->
+                <div class="space-y-2">
+                  <p class="font-medium">
+                    {{ codexConfigContent.authInstructions.platform.title }}:
+                  </p>
+                  <div
+                    class="overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
+                  >
+                    <div class="whitespace-nowrap text-gray-300">
+                      {{ codexConfigContent.authInstructions.platform.command }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Shell 配置文件（仅对于 macOS/Linux 显示） -->
+                <div v-if="codexConfigContent.authInstructions.persistent" class="space-y-2">
+                  <p class="font-medium">
+                    {{ codexConfigContent.authInstructions.persistent.title }}:
+                  </p>
+                  <p class="text-xs">
+                    {{ codexConfigContent.authInstructions.persistent.description }}
+                  </p>
+                  <div
+                    class="overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
+                  >
+                    <div
+                      v-for="command in codexConfigContent.authInstructions.persistent.commands"
+                      :key="command"
+                      class="whitespace-nowrap text-gray-300"
+                      :class="{ 'mt-2': command === '' }"
+                    >
+                      {{ command }}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1396,21 +1484,19 @@
               <p class="mb-3 text-sm text-yellow-700">
                 在
                 <code class="rounded bg-yellow-100 px-1">~/.codex/config.toml</code>
-                文件中添加以下配置：
+                文件开头添加以下配置：
               </p>
               <div
                 class="overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
               >
-                <div class="whitespace-nowrap text-gray-300">model_provider = "crs"</div>
-                <div class="whitespace-nowrap text-gray-300">model = "gpt-5-codex"</div>
-                <div class="whitespace-nowrap text-gray-300">model_reasoning_effort = "high"</div>
-                <div class="whitespace-nowrap text-gray-300">disable_response_storage = true</div>
-                <div class="whitespace-nowrap text-gray-300">preferred_auth_method = "apikey"</div>
-                <div class="mt-2"></div>
-                <div class="whitespace-nowrap text-gray-300">[model_providers.crs]</div>
-                <div class="whitespace-nowrap text-gray-300">name = "crs"</div>
-                <div class="whitespace-nowrap text-gray-300">base_url = "{{ openaiBaseUrl }}"</div>
-                <div class="whitespace-nowrap text-gray-300">wire_api = "responses"</div>
+                <div
+                  v-for="line in codexConfigContent.configToml"
+                  :key="line"
+                  class="whitespace-nowrap text-gray-300"
+                  :class="{ 'mt-2': line === '' }"
+                >
+                  {{ line }}
+                </div>
               </div>
               <p class="mt-3 text-sm text-yellow-700">
                 在
@@ -1420,13 +1506,59 @@
               <div
                 class="mt-2 overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
               >
-                <div class="whitespace-nowrap text-gray-300">{</div>
-                <div class="whitespace-nowrap text-gray-300">"OPENAI_API_KEY": "你的API密钥"</div>
-                <div class="whitespace-nowrap text-gray-300">}</div>
+                <div
+                  v-for="line in codexConfigContent.authJson"
+                  :key="line"
+                  class="whitespace-nowrap text-gray-300"
+                >
+                  {{ line }}
+                </div>
               </div>
-              <p class="mt-2 text-xs text-yellow-700">
-                💡 使用与 Claude Code 相同的 API 密钥即可，格式如 cr_xxxxxxxxxx。
-              </p>
+              <div class="mt-3 space-y-3 text-xs text-yellow-700 dark:text-yellow-300">
+                <!-- 描述文字 -->
+                <p>{{ codexConfigContent.authInstructions.description }}</p>
+
+                <!-- 标题 -->
+                <h6 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                  {{ codexConfigContent.authInstructions.title }}
+                </h6>
+
+                <!-- 当前平台对应的环境变量设置 -->
+                <div class="space-y-2">
+                  <p class="font-medium">
+                    {{ codexConfigContent.authInstructions.platform.title }}:
+                  </p>
+                  <div
+                    class="overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
+                  >
+                    <div class="whitespace-nowrap text-gray-300">
+                      {{ codexConfigContent.authInstructions.platform.command }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Shell 配置文件（仅对于 macOS/Linux 显示） -->
+                <div v-if="codexConfigContent.authInstructions.persistent" class="space-y-2">
+                  <p class="font-medium">
+                    {{ codexConfigContent.authInstructions.persistent.title }}:
+                  </p>
+                  <p class="text-xs">
+                    {{ codexConfigContent.authInstructions.persistent.description }}
+                  </p>
+                  <div
+                    class="overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
+                  >
+                    <div
+                      v-for="command in codexConfigContent.authInstructions.persistent.commands"
+                      :key="command"
+                      class="whitespace-nowrap text-gray-300"
+                      :class="{ 'mt-2': command === '' }"
+                    >
+                      {{ command }}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1633,7 +1765,6 @@ const getBaseUrlPrefix = () => {
       origin = currentUrl.substring(0, pathStart)
     } else {
       // 最后的降级方案，使用相对路径
-      console.warn('无法获取完整的 origin，将使用相对路径')
       return ''
     }
   }
@@ -1654,6 +1785,92 @@ const geminiBaseUrl = computed(() => {
 // OpenAI/Codex 基础URL
 const openaiBaseUrl = computed(() => {
   return getBaseUrlPrefix() + '/openai'
+})
+
+// Codex 配置内容
+const codexConfigContent = computed(() => {
+  // 根据当前激活的教程系统获取对应的环境变量设置说明
+  const getCurrentPlatformAuthInstructions = () => {
+    const baseInstructions = {
+      title: '环境变量设置方法',
+      description:
+        '💡 将 OPENAI_API_KEY 设置为 null，然后设置环境变量 CRS_OAI_KEY 为您的 API 密钥（格式如 cr_xxxxxxxxxx）。'
+    }
+
+    switch (activeTutorialSystem.value) {
+      case 'windows':
+        return {
+          ...baseInstructions,
+          platform: {
+            title: 'Windows',
+            command: 'set CRS_OAI_KEY=cr_xxxxxxxxxx'
+          }
+        }
+      case 'macos':
+        return {
+          ...baseInstructions,
+          platform: {
+            title: 'macOS',
+            command: 'export CRS_OAI_KEY=cr_xxxxxxxxxx'
+          },
+          persistent: {
+            title: 'Shell 配置文件（持久保存）',
+            description: '添加到您的 shell 配置文件中：',
+            commands: [
+              '# 对于 zsh (默认)',
+              'echo "export CRS_OAI_KEY=cr_xxxxxxxxxx" >> ~/.zshrc',
+              'source ~/.zshrc',
+              '',
+              '# 对于 bash',
+              'echo "export CRS_OAI_KEY=cr_xxxxxxxxxx" >> ~/.bash_profile',
+              'source ~/.bash_profile'
+            ]
+          }
+        }
+      case 'linux':
+        return {
+          ...baseInstructions,
+          platform: {
+            title: 'Linux',
+            command: 'export CRS_OAI_KEY=cr_xxxxxxxxxx'
+          },
+          persistent: {
+            title: 'Shell 配置文件（持久保存）',
+            description: '添加到您的 shell 配置文件中：',
+            commands: [
+              '# 对于 bash (默认)',
+              'echo "export CRS_OAI_KEY=cr_xxxxxxxxxx" >> ~/.bashrc',
+              'source ~/.bashrc',
+              '',
+              '# 对于 zsh',
+              'echo "export CRS_OAI_KEY=cr_xxxxxxxxxx" >> ~/.zshrc',
+              'source ~/.zshrc'
+            ]
+          }
+        }
+      default:
+        return baseInstructions
+    }
+  }
+
+  return {
+    configToml: [
+      'model_provider = "crs"',
+      'model = "gpt-5-codex"',
+      'model_reasoning_effort = "high"',
+      'disable_response_storage = true',
+      'preferred_auth_method = "apikey"',
+      '',
+      '[model_providers.crs]',
+      'name = "crs"',
+      `base_url = "${openaiBaseUrl.value}"`,
+      'wire_api = "responses"',
+      'requires_openai_auth = true',
+      'env_key = "CRS_OAI_KEY"'
+    ],
+    authJson: ['{', '  "OPENAI_API_KEY": null', '}'],
+    authInstructions: getCurrentPlatformAuthInstructions()
+  }
 })
 </script>
 

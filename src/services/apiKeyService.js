@@ -37,6 +37,7 @@ class ApiKeyService {
       weeklyOpusCostLimit = 0,
       tags = [],
       activationDays = 0, // 新增：激活后有效天数（0表示不使用此功能）
+      activationUnit = 'days', // 新增：激活时间单位 'hours' 或 'days'
       expirationMode = 'fixed', // 新增：过期模式 'fixed'(固定时间) 或 'activation'(首次使用后激活)
       icon = '' // 新增：图标（base64编码）
     } = options
@@ -73,6 +74,7 @@ class ApiKeyService {
       weeklyOpusCostLimit: String(weeklyOpusCostLimit || 0),
       tags: JSON.stringify(tags || []),
       activationDays: String(activationDays || 0), // 新增：激活后有效天数
+      activationUnit: activationUnit || 'days', // 新增：激活时间单位
       expirationMode: expirationMode || 'fixed', // 新增：过期模式
       isActivated: expirationMode === 'fixed' ? 'true' : 'false', // 根据模式决定激活状态
       activatedAt: expirationMode === 'fixed' ? new Date().toISOString() : '', // 激活时间
@@ -117,6 +119,7 @@ class ApiKeyService {
       weeklyOpusCostLimit: parseFloat(keyData.weeklyOpusCostLimit || 0),
       tags: JSON.parse(keyData.tags || '[]'),
       activationDays: parseInt(keyData.activationDays || 0),
+      activationUnit: keyData.activationUnit || 'days',
       expirationMode: keyData.expirationMode || 'fixed',
       isActivated: keyData.isActivated === 'true',
       activatedAt: keyData.activatedAt,
@@ -152,8 +155,18 @@ class ApiKeyService {
       if (keyData.expirationMode === 'activation' && keyData.isActivated !== 'true') {
         // 首次使用，需要激活
         const now = new Date()
-        const activationDays = parseInt(keyData.activationDays || 30) // 默认30天
-        const expiresAt = new Date(now.getTime() + activationDays * 24 * 60 * 60 * 1000)
+        const activationPeriod = parseInt(keyData.activationDays || 30) // 默认30
+        const activationUnit = keyData.activationUnit || 'days' // 默认天
+
+        // 根据单位计算过期时间
+        let milliseconds
+        if (activationUnit === 'hours') {
+          milliseconds = activationPeriod * 60 * 60 * 1000 // 小时转毫秒
+        } else {
+          milliseconds = activationPeriod * 24 * 60 * 60 * 1000 // 天转毫秒
+        }
+
+        const expiresAt = new Date(now.getTime() + milliseconds)
 
         // 更新激活状态和过期时间
         keyData.isActivated = 'true'
@@ -167,7 +180,7 @@ class ApiKeyService {
         logger.success(
           `🔓 API key activated: ${keyData.id} (${
             keyData.name
-          }), will expire in ${activationDays} days at ${expiresAt.toISOString()}`
+          }), will expire in ${activationPeriod} ${activationUnit} at ${expiresAt.toISOString()}`
         )
       }
 
@@ -361,6 +374,7 @@ class ApiKeyService {
           expirationMode: keyData.expirationMode || 'fixed',
           isActivated: keyData.isActivated === 'true',
           activationDays: parseInt(keyData.activationDays || 0),
+          activationUnit: keyData.activationUnit || 'days',
           activatedAt: keyData.activatedAt || null,
           claudeAccountId: keyData.claudeAccountId,
           claudeConsoleAccountId: keyData.claudeConsoleAccountId,
@@ -432,6 +446,7 @@ class ApiKeyService {
         key.dailyCost = (await redis.getDailyCost(key.id)) || 0
         key.weeklyOpusCost = (await redis.getWeeklyOpusCost(key.id)) || 0
         key.activationDays = parseInt(key.activationDays || 0)
+        key.activationUnit = key.activationUnit || 'days'
         key.expirationMode = key.expirationMode || 'fixed'
         key.isActivated = key.isActivated === 'true'
         key.activatedAt = key.activatedAt || null
@@ -541,6 +556,7 @@ class ApiKeyService {
         'permissions',
         'expiresAt',
         'activationDays', // 新增：激活后有效天数
+        'activationUnit', // 新增：激活时间单位
         'expirationMode', // 新增：过期模式
         'isActivated', // 新增：是否已激活
         'activatedAt', // 新增：激活时间
@@ -1325,6 +1341,70 @@ class ApiKeyService {
         dailyStats: [],
         modelStats: []
       }
+    }
+  }
+
+  // 🔓 解绑账号从所有API Keys
+  async unbindAccountFromAllKeys(accountId, accountType) {
+    try {
+      // 账号类型与字段的映射关系
+      const fieldMap = {
+        claude: 'claudeAccountId',
+        'claude-console': 'claudeConsoleAccountId',
+        gemini: 'geminiAccountId',
+        openai: 'openaiAccountId',
+        'openai-responses': 'openaiAccountId', // 特殊处理，带 responses: 前缀
+        azure_openai: 'azureOpenaiAccountId',
+        bedrock: 'bedrockAccountId',
+        ccr: null // CCR 账号没有对应的 API Key 字段
+      }
+
+      const field = fieldMap[accountType]
+      if (!field) {
+        logger.info(`账号类型 ${accountType} 不需要解绑 API Key`)
+        return 0
+      }
+
+      // 获取所有API Keys
+      const allKeys = await this.getAllApiKeys()
+
+      // 筛选绑定到此账号的 API Keys
+      let boundKeys = []
+      if (accountType === 'openai-responses') {
+        // OpenAI-Responses 特殊处理：查找 openaiAccountId 字段中带 responses: 前缀的
+        boundKeys = allKeys.filter((key) => key.openaiAccountId === `responses:${accountId}`)
+      } else {
+        // 其他账号类型正常匹配
+        boundKeys = allKeys.filter((key) => key[field] === accountId)
+      }
+
+      // 批量解绑
+      for (const key of boundKeys) {
+        const updates = {}
+        if (accountType === 'openai-responses') {
+          updates.openaiAccountId = null
+        } else if (accountType === 'claude-console') {
+          updates.claudeConsoleAccountId = null
+        } else {
+          updates[field] = null
+        }
+
+        await this.updateApiKey(key.id, updates)
+        logger.info(
+          `✅ 自动解绑 API Key ${key.id} (${key.name}) 从 ${accountType} 账号 ${accountId}`
+        )
+      }
+
+      if (boundKeys.length > 0) {
+        logger.success(
+          `🔓 成功解绑 ${boundKeys.length} 个 API Key 从 ${accountType} 账号 ${accountId}`
+        )
+      }
+
+      return boundKeys.length
+    } catch (error) {
+      logger.error(`❌ 解绑 API Keys 失败 (${accountType} 账号 ${accountId}):`, error)
+      return 0
     }
   }
 

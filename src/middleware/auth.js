@@ -1,9 +1,11 @@
+const { v4: uuidv4 } = require('uuid')
+const config = require('../../config/config')
 const apiKeyService = require('../services/apiKeyService')
 const userService = require('../services/userService')
 const logger = require('../utils/logger')
 const redis = require('../models/redis')
 // const { RateLimiterRedis } = require('rate-limiter-flexible') // 暂时未使用
-const config = require('../../config/config')
+const ClientValidator = require('../validators/clientValidator')
 
 // 🔑 API Key验证中间件（优化版）
 const authenticateApiKey = async (req, res, next) => {
@@ -47,78 +49,66 @@ const authenticateApiKey = async (req, res, next) => {
       })
     }
 
-    // 🔒 检查客户端限制
+    // 🔒 检查客户端限制（使用新的验证器）
     if (
       validation.keyData.enableClientRestriction &&
       validation.keyData.allowedClients?.length > 0
     ) {
-      const userAgent = req.headers['user-agent'] || ''
-      const clientIP = req.ip || req.connection?.remoteAddress || 'unknown'
-
-      // 记录客户端限制检查开始
-      logger.api(
-        `🔍 Checking client restriction for key: ${validation.keyData.id} (${validation.keyData.name})`
+      // 使用新的 ClientValidator 进行验证
+      const validationResult = ClientValidator.validateRequest(
+        validation.keyData.allowedClients,
+        req
       )
-      logger.api(`   User-Agent: "${userAgent}"`)
-      logger.api(`   Allowed clients: ${validation.keyData.allowedClients.join(', ')}`)
 
-      let clientAllowed = false
-      let matchedClient = null
-
-      // 获取预定义客户端列表，如果配置不存在则使用默认值
-      const predefinedClients = config.clientRestrictions?.predefinedClients || []
-      const allowCustomClients = config.clientRestrictions?.allowCustomClients || false
-
-      // 遍历允许的客户端列表
-      for (const allowedClientId of validation.keyData.allowedClients) {
-        // 在预定义客户端列表中查找
-        const predefinedClient = predefinedClients.find((client) => client.id === allowedClientId)
-
-        if (predefinedClient) {
-          // 使用预定义的正则表达式匹配 User-Agent
-          if (
-            predefinedClient.userAgentPattern &&
-            predefinedClient.userAgentPattern.test(userAgent)
-          ) {
-            clientAllowed = true
-            matchedClient = predefinedClient.name
-            break
-          }
-        } else if (allowCustomClients) {
-          // 如果允许自定义客户端，这里可以添加自定义客户端的验证逻辑
-          // 目前暂时跳过自定义客户端
-          continue
-        }
-      }
-
-      if (!clientAllowed) {
+      if (!validationResult.allowed) {
+        const clientIP = req.ip || req.connection?.remoteAddress || 'unknown'
         logger.security(
-          `🚫 Client restriction failed for key: ${validation.keyData.id} (${validation.keyData.name}) from ${clientIP}, User-Agent: ${userAgent}`
+          `🚫 Client restriction failed for key: ${validation.keyData.id} (${validation.keyData.name}) from ${clientIP}`
         )
         return res.status(403).json({
           error: 'Client not allowed',
           message: 'Your client is not authorized to use this API key',
-          allowedClients: validation.keyData.allowedClients
+          allowedClients: validation.keyData.allowedClients,
+          userAgent: validationResult.userAgent
         })
       }
 
+      // 验证通过
       logger.api(
-        `✅ Client validated: ${matchedClient} for key: ${validation.keyData.id} (${validation.keyData.name})`
+        `✅ Client validated: ${validationResult.clientName} (${validationResult.matchedClient}) for key: ${validation.keyData.id} (${validation.keyData.name})`
       )
-      logger.api(`   Matched client: ${matchedClient} with User-Agent: "${userAgent}"`)
     }
 
     // 检查并发限制
     const concurrencyLimit = validation.keyData.concurrencyLimit || 0
     if (concurrencyLimit > 0) {
-      const currentConcurrency = await redis.incrConcurrency(validation.keyData.id)
+      const concurrencyConfig = config.concurrency || {}
+      const leaseSeconds = Math.max(concurrencyConfig.leaseSeconds || 900, 30)
+      const rawRenewInterval =
+        typeof concurrencyConfig.renewIntervalSeconds === 'number'
+          ? concurrencyConfig.renewIntervalSeconds
+          : 60
+      let renewIntervalSeconds = rawRenewInterval
+      if (renewIntervalSeconds > 0) {
+        const maxSafeRenew = Math.max(leaseSeconds - 5, 15)
+        renewIntervalSeconds = Math.min(Math.max(renewIntervalSeconds, 15), maxSafeRenew)
+      } else {
+        renewIntervalSeconds = 0
+      }
+      const requestId = uuidv4()
+
+      const currentConcurrency = await redis.incrConcurrency(
+        validation.keyData.id,
+        requestId,
+        leaseSeconds
+      )
       logger.api(
         `📈 Incremented concurrency for key: ${validation.keyData.id} (${validation.keyData.name}), current: ${currentConcurrency}, limit: ${concurrencyLimit}`
       )
 
       if (currentConcurrency > concurrencyLimit) {
         // 如果超过限制，立即减少计数
-        await redis.decrConcurrency(validation.keyData.id)
+        await redis.decrConcurrency(validation.keyData.id, requestId)
         logger.security(
           `🚦 Concurrency limit exceeded for key: ${validation.keyData.id} (${
             validation.keyData.name
@@ -132,14 +122,39 @@ const authenticateApiKey = async (req, res, next) => {
         })
       }
 
+      const renewIntervalMs =
+        renewIntervalSeconds > 0 ? Math.max(renewIntervalSeconds * 1000, 15000) : 0
+
       // 使用标志位确保只减少一次
       let concurrencyDecremented = false
+      let leaseRenewInterval = null
+
+      if (renewIntervalMs > 0) {
+        leaseRenewInterval = setInterval(() => {
+          redis
+            .refreshConcurrencyLease(validation.keyData.id, requestId, leaseSeconds)
+            .catch((error) => {
+              logger.error(
+                `Failed to refresh concurrency lease for key ${validation.keyData.id}:`,
+                error
+              )
+            })
+        }, renewIntervalMs)
+
+        if (typeof leaseRenewInterval.unref === 'function') {
+          leaseRenewInterval.unref()
+        }
+      }
 
       const decrementConcurrency = async () => {
         if (!concurrencyDecremented) {
           concurrencyDecremented = true
+          if (leaseRenewInterval) {
+            clearInterval(leaseRenewInterval)
+            leaseRenewInterval = null
+          }
           try {
-            const newCount = await redis.decrConcurrency(validation.keyData.id)
+            const newCount = await redis.decrConcurrency(validation.keyData.id, requestId)
             logger.api(
               `📉 Decremented concurrency for key: ${validation.keyData.id} (${validation.keyData.name}), new count: ${newCount}`
             )
@@ -178,6 +193,7 @@ const authenticateApiKey = async (req, res, next) => {
       req.concurrencyInfo = {
         apiKeyId: validation.keyData.id,
         apiKeyName: validation.keyData.name,
+        requestId,
         decrementConcurrency
       }
     }
